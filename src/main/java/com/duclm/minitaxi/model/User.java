@@ -4,6 +4,8 @@ import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.springframework.data.relational.core.sql.In;
+
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -34,11 +36,20 @@ public class User extends BaseEntity implements Serializable {
         inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     private Set<Role> roles = new HashSet<>();
+    @Column(nullable = false)
+    private String email;
+    @Column(nullable = true)
+    private Integer phone;
+    @Column(nullable = true)
+    private String address;
 
-    public User(String username, String password) {
+    public User(String username, String password, String email, Integer phone, String address) {
     this.username = username;
     this.password = password;
     this.enabled = true;
+    this.email = email;
+    this.phone = phone;
+    this.address = address;
     }
 
     public boolean hasRole(String roleName) {
