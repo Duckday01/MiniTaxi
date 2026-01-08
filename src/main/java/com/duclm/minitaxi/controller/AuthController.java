@@ -4,11 +4,16 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,7 +52,10 @@ public class AuthController {
     @Autowired
     private CustomUserDetailsService userDetailsService;
 
-    @PostMapping("/login")
+    @Value("${jwt.refresh-expiration}")
+    private long refreshTokenValidity;
+
+     @RequestMapping(value = "/login", method = RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
 
         authenticationManager.authenticate(
@@ -60,14 +68,46 @@ public class AuthController {
         UserDetails userDetails =
                 userDetailsService.loadUserByUsername(request.getUsername());
 
-        String token = jwtUtil.generateToken(userDetails);
+        String accessToken = jwtUtil.generateToken(userDetails);
+        String refreshToken = jwtUtil.generateRefreshToken(userDetails);
 
-        return ResponseEntity.ok(Map.of(
-                "token", token
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(refreshTokenValidity / 1000)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(Map.of(
+                        "accessToken", accessToken,
+                        "status", HttpStatus.OK.value()
         ));
     }
 
-        @PostMapping
+    @PostMapping("/refresh-token")
+    public ResponseEntity<?> refreshToken(@CookieValue(name = "refreshToken", required = false) String refreshToken) {
+        if (refreshToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Refresh token is missing");
+        }
+        try {
+            String username = jwtUtil.extractUsername(refreshToken);
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            
+            if (jwtUtil.validateToken(refreshToken, userDetails)) {
+                String newAccessToken = jwtUtil.generateToken(userDetails);
+                return ResponseEntity.ok(Map.of(
+                        "accessToken", newAccessToken,
+                        "status", HttpStatus.OK.value()
+                ));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid or expired refresh token");
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid refresh token");
+    }
+
         @RequestMapping(value = "/register", method = RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<User> create(
             @Valid @RequestBody RegisterRequest request) {

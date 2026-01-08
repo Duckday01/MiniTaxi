@@ -8,12 +8,14 @@ import org.springframework.data.relational.core.sql.In;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
 @Table(name = "users")
 @Getter
 @Setter
+@NoArgsConstructor
 public class User extends BaseEntity implements Serializable {
 
     @Id
