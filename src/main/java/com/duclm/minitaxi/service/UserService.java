@@ -96,5 +96,10 @@ public class UserService {
         userRepository.deleteById(id);
     }
 
+    public void changePassword(Long id, String newPassword) {
+        User user = getById(id);
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
 
 }
