@@ -8,7 +8,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.duclm.minitaxi.dto.RegisterRequest;
 import com.duclm.minitaxi.dto.UpdateUserRequest;
+import com.duclm.minitaxi.model.Role;
 import com.duclm.minitaxi.model.User;
+import com.duclm.minitaxi.repository.RoleRepository;
 import com.duclm.minitaxi.repository.UserRepository;
 
 @Service
@@ -16,10 +18,13 @@ import com.duclm.minitaxi.repository.UserRepository;
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RoleRepository roleRepository;
 
-    public UserService(UserRepository userRepository,PasswordEncoder passwordEncoder) {
+
+    public UserService(UserRepository userRepository,PasswordEncoder passwordEncoder, RoleRepository roleRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.roleRepository = roleRepository;
     }
 
     public User create(RegisterRequest request) {
@@ -40,6 +45,9 @@ public class UserService {
                 request.getAddress()
         );
 
+        Role customerRole = roleRepository.findByName("CUSTOMER")
+            .orElseThrow(() -> new RuntimeException("ROLE CUSTOMER not found"));
+        user.getRoles().add(customerRole);
         return userRepository.save(user);
     }
 
@@ -87,20 +95,6 @@ public class UserService {
         }
         userRepository.deleteById(id);
     }
-
-
-
-    // public void changePassword(Long id, ChangePasswordRequest request) {
-
-    //     User user = getById(id);
-
-    //     if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
-    //         throw new RuntimeException("Old password is incorrect");
-    //     }
-
-    //     user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-    //     userRepository.save(user);
-    // }
 
 
 }

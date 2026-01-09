@@ -14,6 +14,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import java.security.Key;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
+import com.duclm.minitaxi.config.CustomUserDetails;
 
 
 @Component
@@ -22,55 +23,77 @@ public class JwtUtil {
     @Value("${jwt.secret}")
     private String secretKey;
 
+    @Value("${jwt.refresh-secret}")
+    private String refreshSecretKey;
+
     @Value("${jwt.expiration}")
     private long accessTokenValidity;
 
     @Value("${jwt.refresh-expiration}")
     private long refreshTokenValidity;
 
-    private Key key;
+    private Key accessKey;
+    private Key refreshKey;
+
+    public enum TokenType {
+        ACCESS, REFRESH
+    }
 
     @PostConstruct
     public void init() {
-        this.key = Keys.hmacShaKeyFor(secretKey.getBytes());
+        this.accessKey = Keys.hmacShaKeyFor(secretKey.getBytes());
+        this.refreshKey = Keys.hmacShaKeyFor(refreshSecretKey.getBytes());
     }
 
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
-        return createToken(claims, userDetails.getUsername(), accessTokenValidity);
+        if (userDetails instanceof CustomUserDetails) {
+            CustomUserDetails cud = (CustomUserDetails) userDetails;
+            claims.put("id", cud.getUser().getId());
+        }
+        return createToken(claims, userDetails.getUsername(), accessTokenValidity, accessKey);
     }
 
     public String generateRefreshToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
-        return createToken(claims, userDetails.getUsername(), refreshTokenValidity);
+        if (userDetails instanceof CustomUserDetails) {
+            CustomUserDetails cud = (CustomUserDetails) userDetails;
+            claims.put("id", cud.getUser().getId());
+        }
+        return createToken(claims, userDetails.getUsername(), refreshTokenValidity, refreshKey);
     }
 
-    private String createToken(Map<String, Object> claims, String subject, long expiration) {
+    private String createToken(Map<String, Object> claims, String subject, long expiration, Key signKey) {
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(key, SignatureAlgorithm.HS256)
+                .signWith(signKey, SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    public String extractUsername(String token) {
-        return getClaims(token).getSubject();
+    private Key getKey(TokenType type) {
+        return type == TokenType.REFRESH ? refreshKey : accessKey;
     }
 
-    public boolean validateToken(String token, UserDetails userDetails) {
-        return extractUsername(token).equals(userDetails.getUsername())
-                && !isExpired(token);
+    public String extractUsername(String token, TokenType type) {
+        return getClaims(token, getKey(type)).getSubject();
     }
 
-    private boolean isExpired(String token) {
-        return getClaims(token).getExpiration().before(new Date());
+    public boolean validateToken(String token, UserDetails userDetails, TokenType type) {
+        Key key = getKey(type);
+        return extractUsername(token, type).equals(userDetails.getUsername())
+                && !isExpired(token, key);
     }
 
-    private Claims getClaims(String token) {
+    private boolean isExpired(String token, Key signKey) {
+        return getClaims(token, signKey).getExpiration().before(new Date());
+    }
+
+    private Claims getClaims(String token, Key signKey) {
         return Jwts.parserBuilder()
-                .setSigningKey(key)
+                .setSigningKey(signKey)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
