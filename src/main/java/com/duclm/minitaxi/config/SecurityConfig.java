@@ -15,11 +15,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import jakarta.servlet.http.HttpServletResponse;
 import com.duclm.minitaxi.security.JwtAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity // Kích hoạt @PreAuthorize
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Autowired
@@ -56,7 +57,7 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**").permitAll()
-                .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/error").permitAll() 
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())

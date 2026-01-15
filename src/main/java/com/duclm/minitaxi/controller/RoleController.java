@@ -11,7 +11,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api")
-@PreAuthorize("hasRole('ADMIN')") // Chỉ ADMIN mới được truy cập Controller này
+// @PreAuthorize("hasRole('ADMIN')") // Chỉ ADMIN mới được truy cập Controller này
+@PreAuthorize("hasAuthority('user:read')") 
 public class RoleController {
 
     private final RoleService roleService;
